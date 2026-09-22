@@ -30,10 +30,11 @@ public class Lexer {
             TokenType tokenType = findTokenType(symbol);
 
             if (tokenType == null) {
-                throw new RuntimeException("Невідомий символ" + symbol + "на позиції " + position);
+                System.out.println("Невідомий символ " + symbol + " на позиції " + position);
+            } else {
+                tokens.add(new Token(tokenType, symbol, position));
             }
 
-            tokens.add(new Token(tokenType, symbol, position));
             position++;
         }
         return tokens;
@@ -87,7 +88,8 @@ public class Lexer {
             position++;
 
             if (position >= input.length() || !Character.isDigit(input.charAt(position))) {
-                throw new RuntimeException("Некоректне число на позиції" + position);
+                System.out.println("Некоректне число на позиції" + position);
+                position++;
             }
 
             while (position < input.length() && Character.isDigit(input.charAt(position))) {
