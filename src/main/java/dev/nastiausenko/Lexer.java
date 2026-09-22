@@ -37,6 +37,7 @@ public class Lexer {
 
             position++;
         }
+        tokens.add(new Token(TokenType.END, "", input.length()));
         return tokens;
     }
 
