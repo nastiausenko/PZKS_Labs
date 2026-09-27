@@ -9,6 +9,10 @@ public class SyntaxError {
         this.position = position;
     }
 
+    public String getError() {
+        return error;
+    }
+
     public int getPosition() {
         return position;
     }

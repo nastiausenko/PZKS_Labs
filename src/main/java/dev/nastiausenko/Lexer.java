@@ -4,6 +4,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class Lexer {
+    private final List<LexicalError> errors = new ArrayList<>();
+
     public List<Token> tokenize(String input) {
         List<Token> tokens = new ArrayList<>();
         int position = 0;
@@ -30,7 +32,7 @@ public class Lexer {
             TokenType tokenType = findTokenType(symbol);
 
             if (tokenType == null) {
-                System.out.println("Невідомий символ " + symbol + " на позиції " + position);
+                errors.add(new LexicalError("Невідомий символ " + symbol + ". ", position));
             } else {
                 tokens.add(new Token(tokenType, symbol, position));
             }
@@ -39,6 +41,10 @@ public class Lexer {
         }
         tokens.add(new Token(TokenType.END, "", input.length()));
         return tokens;
+    }
+
+    public List<LexicalError> getErrors() {
+        return errors;
     }
 
     private TokenType findTokenType(String symbol) {
