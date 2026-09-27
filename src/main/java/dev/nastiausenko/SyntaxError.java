@@ -9,6 +9,10 @@ public class SyntaxError {
         this.position = position;
     }
 
+    public int getPosition() {
+        return position;
+    }
+
     @Override
     public String toString() {
         return "Позиція " + position + ": " + error;

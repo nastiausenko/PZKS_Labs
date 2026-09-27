@@ -9,24 +9,53 @@ public class Main {
         String input = scanner.nextLine();
 
         Lexer lexer = new Lexer();
-        List<Token> tokens = lexer.tokenize(input);
-
         SyntaxAnalyzer syntaxAnalyzer = new SyntaxAnalyzer();
-        List<SyntaxError> errors = syntaxAnalyzer.analyze(tokens);
 
-        for (Token token : tokens) {
-            System.out.println(token);
-        }
+        while (!input.equals("exit")) {
+            List<Token> tokens = lexer.tokenize(input);
+            List<SyntaxError> errors = syntaxAnalyzer.analyze(tokens);
 
-        if (!errors.isEmpty()) {
-            System.out.println("\nПомилки:");
-            for (SyntaxError error : errors) {
-                System.out.println(error);
+            for (Token token : tokens) {
+                System.out.println(token);
             }
-        } else {
-            System.out.println("Помилок не виявлено");
+
+            if (!errors.isEmpty()) {
+                printErrors(input, errors);
+            } else {
+                System.out.println("Помилок не виявлено");
+            }
+
+            input = scanner.nextLine();
         }
 
         scanner.close();
+    }
+
+    private static void printErrors(String expression, List<SyntaxError> errors) {
+        System.out.println("\nПомилки:");
+        System.out.println(expression);
+
+        for (int i = 0; i < expression.length(); i++) {
+            if (hasErrorAtPosition(errors, i)) {
+                System.out.print("^");
+            } else {
+                System.out.print(" ");
+            }
+        }
+
+        System.out.println();
+
+        for (SyntaxError error : errors) {
+            System.out.println(error);
+        }
+    }
+    private static boolean hasErrorAtPosition(List<SyntaxError> errors, int position) {
+        for (SyntaxError error : errors) {
+            if (error.getPosition() == position) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

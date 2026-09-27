@@ -67,7 +67,7 @@ public class Lexer {
         String value = input.substring(startPosition, position);
 
         TokenType tokenType;
-        if (TokenType.FUNCTION.hasValue(value)) {
+        if (TokenType.FUNCTION.isFunction(value)) {
             tokenType = TokenType.FUNCTION;
         } else if (TokenType.CONSTANT.hasValue(value)) {
             tokenType = TokenType.CONSTANT;
