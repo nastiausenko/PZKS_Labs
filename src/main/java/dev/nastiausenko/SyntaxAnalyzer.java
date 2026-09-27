@@ -5,6 +5,7 @@ import java.util.*;
 public class SyntaxAnalyzer {
     private enum State {
         EXPECT_OPERAND,
+        EXPECT_NEGATIVE_OPERAND,
         EXPECT_OPERATOR,
         EXPECT_FUNCTION_PAREN
     }
@@ -150,9 +151,24 @@ public class SyntaxAnalyzer {
                 continue;
             }
 
-            State nextState = transitions
-                    .get(state)
-                    .get(tokenType);
+            State nextState;
+            if (tokenType == TokenType.MINUS && state == State.EXPECT_OPERAND) {
+                if (previousToken == null || previousToken.getType() == TokenType.LEFT_PAREN) {
+                    nextState = State.EXPECT_NEGATIVE_OPERAND;
+
+                } else {
+                    errors.add(new SyntaxError("Від'ємний операнд у середині виразу повинен бути взятий у дужки.",
+                            token.getPosition()
+                    ));
+
+                    previousToken = token;
+                    continue;
+                }
+            } else {
+                nextState = transitions
+                        .get(state)
+                        .get(tokenType);
+            }
 
             if (nextState == null) {
                 errors.add(new SyntaxError(
@@ -178,6 +194,13 @@ public class SyntaxAnalyzer {
         expectOperand.put(TokenType.LEFT_PAREN, State.EXPECT_OPERAND);
         expectOperand.put(TokenType.FUNCTION, State.EXPECT_FUNCTION_PAREN);
 
+        Map<TokenType, State> expectNegativeOperand = new HashMap<>();
+        expectNegativeOperand.put(TokenType.NUMBER, State.EXPECT_OPERATOR);
+        expectNegativeOperand.put(TokenType.IDENTIFIER, State.EXPECT_OPERATOR);
+        expectNegativeOperand.put(TokenType.CONSTANT, State.EXPECT_OPERATOR);
+        expectNegativeOperand.put(TokenType.FUNCTION, State.EXPECT_FUNCTION_PAREN);
+        expectNegativeOperand.put(TokenType.LEFT_PAREN, State.EXPECT_OPERAND);
+
         Map<TokenType, State> expectOperator = new HashMap<>();
         expectOperator.put(TokenType.PLUS, State.EXPECT_OPERAND);
         expectOperator.put(TokenType.MINUS, State.EXPECT_OPERAND);
@@ -189,6 +212,7 @@ public class SyntaxAnalyzer {
         expectFunctionArgument.put(TokenType.LEFT_PAREN, State.EXPECT_OPERAND);
 
         transitions.put(State.EXPECT_OPERAND, expectOperand);
+        transitions.put(State.EXPECT_NEGATIVE_OPERAND, expectNegativeOperand);
         transitions.put(State.EXPECT_OPERATOR, expectOperator);
         transitions.put(State.EXPECT_FUNCTION_PAREN, expectFunctionArgument);
 
