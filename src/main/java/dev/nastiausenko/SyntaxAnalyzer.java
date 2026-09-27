@@ -49,7 +49,8 @@ public class SyntaxAnalyzer {
             }
 
             if (tokenType == TokenType.COMMA) {
-                state = handleComma(token, state, contextStack, errors);
+                handleComma(token, state, contextStack, errors);
+                state = State.EXPECT_OPERAND;
                 previousToken = token;
                 continue;
             }
@@ -60,10 +61,15 @@ public class SyntaxAnalyzer {
                 continue;
             }
 
-            State nextState = getNextState(state, token, previousToken, errors);
+            State nextState = getNextState(state, token, previousToken, pendingFunction, errors);
 
             if (nextState == null) {
                 previousToken = token;
+                if (state == State.EXPECT_FUNCTION_PAREN) {
+                    pendingFunction = null;
+                    state = State.EXPECT_OPERAND;
+                }
+
                 continue;
             }
 
@@ -129,37 +135,44 @@ public class SyntaxAnalyzer {
         }
     }
 
-    private State handleComma(Token token, State state, Deque<Context> contextStack, List<SyntaxError> errors) {
+    private void handleComma(Token token, State state, Deque<Context> contextStack, List<SyntaxError> errors) {
         if (contextStack.isEmpty()) {
-            errors.add(new SyntaxError(
-                    "Кома не може використовуватися поза функцією.",
+            errors.add(new SyntaxError("Кома не може використовуватися поза функцією.",
                     token.getPosition()
             ));
-
-            return state;
+            return;
         }
 
         Context context = contextStack.peek();
-        if (!"pow".equals(context.getFunctionName())) {
-            errors.add(new SyntaxError(
-                    "Кома дозволена тільки для розділення аргументів функції 'pow'.",
+        String functionName = context.getFunctionName();
+        boolean supportsMultipleArguments = functionName != null &&
+                ("pow".equals(functionName) || functionName.matches("f\\d+"));
+
+        if (!supportsMultipleArguments) {
+            errors.add(new SyntaxError("Функція '" + functionName + "' повинна мати лише один аргумент.",
                     token.getPosition()
             ));
 
-            return state;
+            return;
         }
 
-
         if (state != State.EXPECT_OPERATOR) {
-            errors.add(new SyntaxError(
-                    "Перед комою повинен бути аргумент функції 'pow'.",
+            errors.add(new SyntaxError("Перед комою повинен бути аргумент функції.",
                     token.getPosition()
             ));
-            return state;
+            return;
+        }
+
+        if (context.getArgumentCount() >= 2) {
+            errors.add(new SyntaxError(
+                    "Функція '" + functionName + "' не може мати більше 2 аргументів.",
+                    token.getPosition()
+            ));
+            context.setTooManyArguments();
+            return;
         }
 
         context.incrementArgumentCount();
-        return State.EXPECT_OPERAND;
     }
 
     private State handleRightParen(Token token, State state, Token previousToken, Deque<Context> contextStack, List<SyntaxError> errors) {
@@ -172,6 +185,11 @@ public class SyntaxAnalyzer {
         }
 
         Context context = contextStack.peek();
+        if (context.hasTooManyArguments()) {
+            contextStack.pop();
+            return State.EXPECT_OPERATOR;
+        }
+
         if (state == State.EXPECT_OPERAND) {
             String message;
             if (previousToken.getType() == TokenType.LEFT_PAREN) {
@@ -186,9 +204,19 @@ public class SyntaxAnalyzer {
             return State.EXPECT_OPERATOR;
         }
 
-        if ("pow".equals(context.getFunctionName()) && context.getArgumentCount() != 2) {
+        String functionName = context.getFunctionName();
+        boolean isCustomFunction = functionName != null && functionName.matches("f\\d+");
+
+        if ("pow".equals(functionName) && context.getArgumentCount() != 2) {
+            errors.add(new SyntaxError("Функція '" + functionName + "' повинна мати рівно 2 аргументи, "
+                            + "але отримано " + context.getArgumentCount() + ".",
+                    token.getPosition()
+            ));
+        }
+
+        if (isCustomFunction && (context.getArgumentCount() < 1 || context.getArgumentCount() > 2)) {
             errors.add(new SyntaxError(
-                    "Функція 'pow' повинна мати рівно 2 аргументи, " + "але отримано " + context.getArgumentCount() + ".",
+                    "Функція '" + functionName + "' повинна мати від 1 до 2 аргументів.",
                     token.getPosition()
             ));
         }
@@ -197,7 +225,7 @@ public class SyntaxAnalyzer {
         return State.EXPECT_OPERATOR;
     }
 
-    private State getNextState(State state, Token token, Token previousToken, List<SyntaxError> errors) {
+    private State getNextState(State state, Token token, Token previousToken, String pendingFunction, List<SyntaxError> errors) {
         TokenType tokenType = token.getType();
 
         if (tokenType == TokenType.MINUS && state == State.EXPECT_OPERAND) {
@@ -217,7 +245,7 @@ public class SyntaxAnalyzer {
                 .get(tokenType);
 
         if (nextState == null) {
-            errors.add(new SyntaxError(getErrorMessage(state, token, previousToken, null), token.getPosition()));
+            errors.add(new SyntaxError(getErrorMessage(state, token, previousToken, pendingFunction), token.getPosition()));
             return null;
         }
 
@@ -233,12 +261,17 @@ public class SyntaxAnalyzer {
                     || type == TokenType.MULTIPLY
                     || type == TokenType.DIVIDE) {
 
-                return "Неочікуваний " + type.getDescription() + ". Після попереднього оператора повинен бути операнд.";
+                if (previousToken == null) {
+                    return "Вираз не може починатися з оператора '" + token.getValue() + "'.";
+                }
+
+                return "Неочікуваний " + type.getDescription() + " '" + token.getValue() + "'"
+                        + ". Після попереднього оператора повинен бути операнд.";
             }
 
             if (isOperand(type)) {
-
-                return "Неочікуваний " + type.getDescription() + " '. Перед ним відсутній оператор.";
+                return "Неочікуваний " + type.getDescription() + " '" + token.getValue() + "'"
+                        + " '. Перед ним відсутній оператор.";
             }
 
             if (type == TokenType.RIGHT_PAREN) {
@@ -246,23 +279,21 @@ public class SyntaxAnalyzer {
                         "Перед нею повинен бути операнд.";
             }
 
-            return "Неочікуваний " + type.getDescription() + ".";
+            return "Неочікуваний " + type.getDescription() + " '" + token.getValue() + "'.";
         }
 
         if (state == State.EXPECT_OPERATOR) {
             if (isOperand(type)) {
-
-                return "Між " + previousToken.getType().getDescription() + " та " +
-                        type.getDescription() + " відсутній оператор.";
+                return "Між " + type.getDescription() + " '" + previousToken.getValue() + "' та " +
+                        type.getDescription() + " '" + token.getValue() + "' відсутній оператор.";
             }
 
             if (type == TokenType.LEFT_PAREN) {
-
-                return "Між " + previousToken.getType().getDescription() +
-                        " та відкриваючою дужкою '(' відсутній оператор.";
+                return "Між " + previousToken.getType().getDescription() + " '" + previousToken.getValue() +
+                        "' та відкриваючою дужкою '(' відсутній оператор.";
             }
 
-            return "Неочікуваний " + type.getDescription() + ". Очікувався оператор.";
+            return "Неочікуваний " + type.getDescription() + " '" + previousToken.getValue() + "'. Очікувався оператор.";
         }
 
         if (state == State.EXPECT_FUNCTION_PAREN) {
@@ -275,10 +306,12 @@ public class SyntaxAnalyzer {
     private static class Context {
         private final String functionName;
         private int argumentCount;
+        private boolean tooManyArguments;
 
         public Context(String functionName) {
             this.functionName = functionName;
             this.argumentCount = 0;
+            this.tooManyArguments = false;
         }
 
         public String getFunctionName() {
@@ -291,6 +324,14 @@ public class SyntaxAnalyzer {
 
         public void incrementArgumentCount() {
             argumentCount++;
+        }
+
+        public boolean hasTooManyArguments() {
+            return tooManyArguments;
+        }
+
+        public void setTooManyArguments() {
+            tooManyArguments = true;
         }
     }
 }

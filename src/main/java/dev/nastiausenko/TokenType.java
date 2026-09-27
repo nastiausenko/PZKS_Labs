@@ -4,13 +4,13 @@ public enum TokenType {
     NUMBER("число"),
     IDENTIFIER("ідентифікатор"),
 
-    PLUS("+", "оператор '+'"),
-    MINUS("-", "оператор '-'"),
-    MULTIPLY("*", "оператор '*'"),
-    DIVIDE("/", "оператор '/'"),
+    PLUS("+", "оператор"),
+    MINUS("-", "оператор"),
+    MULTIPLY("*", "оператор"),
+    DIVIDE("/", "оператор"),
 
-    LEFT_PAREN("(", "відкриваюча дужка '('"),
-    RIGHT_PAREN(")", "закриваюча дужка ')'"),
+    LEFT_PAREN("(", "відкриваюча дужка"),
+    RIGHT_PAREN(")", "закриваюча дужка"),
     COMMA(",", "кома"),
 
     FUNCTION(new String[]{"sin", "cos", "tan", "asin", "acos", "atan",

@@ -6,12 +6,21 @@ import java.util.Scanner;
 public class Main {
     public static void main(String[] args) {
         Scanner scanner = new Scanner(System.in);
-        String input = scanner.nextLine();
 
         Lexer lexer = new Lexer();
         SyntaxAnalyzer syntaxAnalyzer = new SyntaxAnalyzer();
 
-        while (!input.equals("exit")) {
+        while (true) {
+            System.out.print("> ");
+            if (!scanner.hasNextLine()) {
+                break;
+            }
+
+            String input = scanner.nextLine();
+            if (input.equals("exit")) {
+                break;
+            }
+
             List<Token> tokens = lexer.tokenize(input);
             List<SyntaxError> errors = syntaxAnalyzer.analyze(tokens);
 
@@ -24,8 +33,6 @@ public class Main {
             } else {
                 System.out.println("Помилок не виявлено");
             }
-
-            input = scanner.nextLine();
         }
 
         scanner.close();
@@ -35,7 +42,7 @@ public class Main {
         System.out.println("\nПомилки:");
         System.out.println(expression);
 
-        for (int i = 0; i < expression.length(); i++) {
+        for (int i = 0; i <= expression.length(); i++) {
             if (hasErrorAtPosition(errors, i)) {
                 System.out.print("^");
             } else {
