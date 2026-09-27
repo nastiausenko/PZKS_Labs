@@ -35,28 +35,7 @@ public class SyntaxAnalyzer {
             TokenType tokenType = token.getType();
 
             if (tokenType == TokenType.END) {
-                if (state == State.EXPECT_OPERAND && previousToken != null) {
-                    errors.add(new SyntaxError(
-                            "Вираз закінчується " + previousToken.getType().getDescription() + " '"
-                                    + previousToken.getValue() + "'. Після нього повинен бути операнд.",
-                            token.getPosition()
-                    ));
-                }
-
-                if (state == State.EXPECT_FUNCTION_PAREN) {
-                    errors.add(new SyntaxError(
-                            "Після функції '" + pendingFunction + "' очікувалася відкриваюча дужка '('.",
-                            token.getPosition()
-                    ));
-                }
-
-                if (!contextStack.isEmpty()) {
-                    errors.add(new SyntaxError(
-                            "Не вистачає " + contextStack.size() + " закриваючої дужки.",
-                            token.getPosition()
-                    ));
-                }
-
+                handleEnd(token, state, previousToken, pendingFunction, contextStack, errors);
                 continue;
             }
 
@@ -70,111 +49,20 @@ public class SyntaxAnalyzer {
             }
 
             if (tokenType == TokenType.COMMA) {
-                if (contextStack.isEmpty()) {
-                    errors.add(new SyntaxError(
-                            "Кома не може використовуватися поза функцією.",
-                            token.getPosition()
-                    ));
-                    previousToken = token;
-                    continue;
-                }
-
-                Context context = contextStack.peek();
-                if (!"pow".equals(context.getFunctionName())) {
-                    errors.add(new SyntaxError(
-                            "Кома дозволена тільки для розділення аргументів функції 'pow'.",
-                            token.getPosition()
-                    ));
-                    previousToken = token;
-                    continue;
-                }
-
-                if (state != State.EXPECT_OPERATOR) {
-                    errors.add(new SyntaxError(
-                            "Перед комою повинен бути аргумент функції 'pow'.",
-                            token.getPosition()
-                    ));
-                    previousToken = token;
-                    continue;
-                }
-
-                context.incrementArgumentCount();
-                state = State.EXPECT_OPERAND;
+                state = handleComma(token, state, contextStack, errors);
                 previousToken = token;
                 continue;
             }
 
             if (tokenType == TokenType.RIGHT_PAREN) {
-                if (contextStack.isEmpty()) {
-                    errors.add(new SyntaxError(
-                            "Закриваюча дужка ')' не має відповідної відкриваючої дужки.",
-                            token.getPosition()
-                    ));
-
-                    previousToken = token;
-                    continue;
-                }
-
-                Context context = contextStack.peek();
-
-                if (state == State.EXPECT_OPERAND) {
-                    String message;
-                    if (previousToken.getType() == TokenType.LEFT_PAREN) {
-                        message = "Порожні дужки '()' не допускаються.";
-                    } else {
-                        message = "Перед закриваючою дужкою ')' повинен бути операнд.";
-                    }
-
-                    errors.add(new SyntaxError(
-                            message,
-                            token.getPosition()
-                    ));
-
-                    contextStack.pop();
-                    state = State.EXPECT_OPERATOR;
-                    previousToken = token;
-                    continue;
-                }
-
-                if ("pow".equals(context.getFunctionName())
-                        && context.getArgumentCount() != 2) {
-
-                    errors.add(new SyntaxError(
-                            "Функція 'pow' повинна мати рівно 2 аргументи, " + "але отримано " + context.getArgumentCount() + ".",
-                            token.getPosition()
-                    ));
-                }
-
-                contextStack.pop();
-                state = State.EXPECT_OPERATOR;
+                state = handleRightParen(token, state, previousToken, contextStack, errors);
                 previousToken = token;
                 continue;
             }
 
-            State nextState;
-            if (tokenType == TokenType.MINUS && state == State.EXPECT_OPERAND) {
-                if (previousToken == null || previousToken.getType() == TokenType.LEFT_PAREN) {
-                    nextState = State.EXPECT_NEGATIVE_OPERAND;
-
-                } else {
-                    errors.add(new SyntaxError("Від'ємний операнд у середині виразу повинен бути взятий у дужки.",
-                            token.getPosition()
-                    ));
-
-                    previousToken = token;
-                    continue;
-                }
-            } else {
-                nextState = transitions
-                        .get(state)
-                        .get(tokenType);
-            }
+            State nextState = getNextState(state, token, previousToken, errors);
 
             if (nextState == null) {
-                errors.add(new SyntaxError(
-                        getErrorMessage(state, token, previousToken, pendingFunction),
-                        token.getPosition()
-                ));
                 previousToken = token;
                 continue;
             }
@@ -215,7 +103,125 @@ public class SyntaxAnalyzer {
         transitions.put(State.EXPECT_NEGATIVE_OPERAND, expectNegativeOperand);
         transitions.put(State.EXPECT_OPERATOR, expectOperator);
         transitions.put(State.EXPECT_FUNCTION_PAREN, expectFunctionArgument);
+    }
 
+    private void handleEnd(Token token, State state, Token previousToken, String pendingFunction,
+                           Deque<Context> contextStack, List<SyntaxError> errors) {
+        if (state == State.EXPECT_OPERAND && previousToken != null) {
+            errors.add(new SyntaxError(
+                    "Вираз закінчується " + previousToken.getType().getDescription() + ". Після нього повинен бути операнд.",
+                    token.getPosition()
+            ));
+        }
+
+        if (state == State.EXPECT_FUNCTION_PAREN) {
+            errors.add(new SyntaxError(
+                    "Після функції '" + pendingFunction + "' очікувалася відкриваюча дужка '('.",
+                    token.getPosition()
+            ));
+        }
+
+        if (!contextStack.isEmpty()) {
+            errors.add(new SyntaxError(
+                    "Не вистачає " + contextStack.size() + " закриваючої дужки.",
+                    token.getPosition()
+            ));
+        }
+    }
+
+    private State handleComma(Token token, State state, Deque<Context> contextStack, List<SyntaxError> errors) {
+        if (contextStack.isEmpty()) {
+            errors.add(new SyntaxError(
+                    "Кома не може використовуватися поза функцією.",
+                    token.getPosition()
+            ));
+
+            return state;
+        }
+
+        Context context = contextStack.peek();
+        if (!"pow".equals(context.getFunctionName())) {
+            errors.add(new SyntaxError(
+                    "Кома дозволена тільки для розділення аргументів функції 'pow'.",
+                    token.getPosition()
+            ));
+
+            return state;
+        }
+
+
+        if (state != State.EXPECT_OPERATOR) {
+            errors.add(new SyntaxError(
+                    "Перед комою повинен бути аргумент функції 'pow'.",
+                    token.getPosition()
+            ));
+            return state;
+        }
+
+        context.incrementArgumentCount();
+        return State.EXPECT_OPERAND;
+    }
+
+    private State handleRightParen(Token token, State state, Token previousToken, Deque<Context> contextStack, List<SyntaxError> errors) {
+        if (contextStack.isEmpty()) {
+            errors.add(new SyntaxError(
+                    "Закриваюча дужка ')' не має відповідної відкриваючої дужки.",
+                    token.getPosition()
+            ));
+            return state;
+        }
+
+        Context context = contextStack.peek();
+        if (state == State.EXPECT_OPERAND) {
+            String message;
+            if (previousToken.getType() == TokenType.LEFT_PAREN) {
+                message = "Порожні дужки '()' не допускаються.";
+            } else {
+                message = "Перед закриваючою дужкою ')' повинен бути операнд.";
+            }
+
+            errors.add(new SyntaxError(message, token.getPosition()));
+
+            contextStack.pop();
+            return State.EXPECT_OPERATOR;
+        }
+
+        if ("pow".equals(context.getFunctionName()) && context.getArgumentCount() != 2) {
+            errors.add(new SyntaxError(
+                    "Функція 'pow' повинна мати рівно 2 аргументи, " + "але отримано " + context.getArgumentCount() + ".",
+                    token.getPosition()
+            ));
+        }
+
+        contextStack.pop();
+        return State.EXPECT_OPERATOR;
+    }
+
+    private State getNextState(State state, Token token, Token previousToken, List<SyntaxError> errors) {
+        TokenType tokenType = token.getType();
+
+        if (tokenType == TokenType.MINUS && state == State.EXPECT_OPERAND) {
+            if (previousToken == null || previousToken.getType() == TokenType.LEFT_PAREN) {
+                return State.EXPECT_NEGATIVE_OPERAND;
+            }
+
+            errors.add(new SyntaxError("Від'ємний операнд у середині виразу повинен бути взятий у дужки.",
+                    token.getPosition()
+            ));
+
+            return null;
+        }
+
+        State nextState = transitions
+                .get(state)
+                .get(tokenType);
+
+        if (nextState == null) {
+            errors.add(new SyntaxError(getErrorMessage(state, token, previousToken, null), token.getPosition()));
+            return null;
+        }
+
+        return nextState;
     }
 
     private String getErrorMessage(State state, Token token, Token previousToken, String pendingFunction) {
