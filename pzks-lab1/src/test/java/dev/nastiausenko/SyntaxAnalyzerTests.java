@@ -213,6 +213,16 @@ class SyntaxAnalyzerTests {
     }
 
     @Test
+    void shouldRejectCommaInsideGroupingParenthesesWithoutNullFunctionName() {
+        List<SyntaxError> errors = analyze("(x, y)");
+
+        assertFalse(errors.isEmpty());
+
+        assertTrue(errors.stream().anyMatch(error -> error.getError().contains("поза функцією")));
+        assertTrue(errors.stream().noneMatch(error -> error.getError().contains("'null'")));
+    }
+
+    @Test
     void shouldRejectCommaWithoutArgumentBeforeIt() {
         List<SyntaxError> errors = analyze("pow(, x)");
 

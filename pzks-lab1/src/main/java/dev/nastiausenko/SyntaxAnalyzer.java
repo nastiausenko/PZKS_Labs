@@ -65,9 +65,17 @@ public class SyntaxAnalyzer {
 
             if (nextState == null) {
                 previousToken = token;
-                if (state == State.EXPECT_FUNCTION_PAREN) {
-                    pendingFunction = null;
+
+                if (tokenType == TokenType.LEFT_PAREN) {
                     state = State.EXPECT_OPERAND;
+                } else if (state == State.EXPECT_FUNCTION_PAREN) {
+                    pendingFunction = null;
+
+                    if (isOperand(tokenType)) {
+                        state = State.EXPECT_OPERATOR;
+                    } else {
+                        state = State.EXPECT_OPERAND;
+                    }
                 }
 
                 continue;
@@ -115,7 +123,7 @@ public class SyntaxAnalyzer {
                            Deque<Context> contextStack, List<SyntaxError> errors) {
         if (state == State.EXPECT_OPERAND && previousToken != null) {
             errors.add(new SyntaxError(
-                    "Вираз закінчується " + previousToken.getType().getDescription() + ". Після нього повинен бути операнд.",
+                    "Вираз закінчується " + previousToken.getType().getDescription() + " '" + previousToken.getValue() + "'.",
                     token.getPosition()
             ));
         }
@@ -145,8 +153,15 @@ public class SyntaxAnalyzer {
 
         Context context = contextStack.peek();
         String functionName = context.getFunctionName();
-        boolean supportsMultipleArguments = functionName != null &&
-                ("pow".equals(functionName) || functionName.matches("f\\d+"));
+
+        if (functionName == null) {
+            errors.add(new SyntaxError("Кома не може використовуватися поза функцією.",
+                    token.getPosition()
+            ));
+            return;
+        }
+
+        boolean supportsMultipleArguments = "pow".equals(functionName) || functionName.matches("f\\d+");
 
         if (!supportsMultipleArguments) {
             errors.add(new SyntaxError("Функція '" + functionName + "' повинна мати лише один аргумент.",

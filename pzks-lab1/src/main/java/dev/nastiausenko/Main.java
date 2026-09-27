@@ -22,7 +22,7 @@ public class Main {
             }
 
             List<Token> tokens = lexer.tokenize(input);
-            List<LexicalError> lexicalErrors = lexer.getErrors();
+            List<LexicalError> lexicalErrors = List.copyOf(lexer.getErrors());
             List<SyntaxError> errors = syntaxAnalyzer.analyze(tokens);
 
             System.out.println("\nТокени:");

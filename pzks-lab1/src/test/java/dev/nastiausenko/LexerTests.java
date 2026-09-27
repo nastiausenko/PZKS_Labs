@@ -166,6 +166,16 @@ class LexerTests {
     }
 
     @Test
+    void shouldClearErrorsBeforeEachTokenization() {
+        lexer.tokenize("x%");
+        assertFalse(lexer.getErrors().isEmpty());
+
+        lexer.tokenize("x + 1");
+
+        assertTrue(lexer.getErrors().isEmpty());
+    }
+
+    @Test
     void shouldAddEndToken() {
         List<Token> tokens = lexer.tokenize("x + 1");
 
