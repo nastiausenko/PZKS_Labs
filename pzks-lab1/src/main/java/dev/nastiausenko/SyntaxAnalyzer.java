@@ -284,7 +284,7 @@ public class SyntaxAnalyzer {
 
         if (state == State.EXPECT_OPERATOR) {
             if (isOperand(type)) {
-                return "Між " + type.getDescription() + " '" + previousToken.getValue() + "' та " +
+                return "Між " + previousToken.getType().getDescription() + " '" + previousToken.getValue() + "' та " +
                         type.getDescription() + " '" + token.getValue() + "' відсутній оператор.";
             }
 
@@ -293,7 +293,7 @@ public class SyntaxAnalyzer {
                         "' та відкриваючою дужкою '(' відсутній оператор.";
             }
 
-            return "Неочікуваний " + type.getDescription() + " '" + previousToken.getValue() + "'. Очікувався оператор.";
+            return "Неочікуваний " + type.getDescription() + " '" + token.getValue() + "'. Очікувався оператор.";
         }
 
         if (state == State.EXPECT_FUNCTION_PAREN) {
