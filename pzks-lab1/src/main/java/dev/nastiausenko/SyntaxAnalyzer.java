@@ -57,6 +57,15 @@ public class SyntaxAnalyzer {
             }
 
             if (tokenType == TokenType.RIGHT_PAREN) {
+                if (state == State.EXPECT_FUNCTION_PAREN) {
+                    errors.add(new SyntaxError(
+                            "Після функції '" + pendingFunction + "' очікувалася відкриваюча дужка '('.",
+                            token.getPosition()
+                    ));
+                    pendingFunction = null;
+                    state = State.EXPECT_OPERATOR;
+                }
+
                 state = handleRightParen(token, state, previousToken, contextStack, errors);
                 previousToken = token;
                 continue;
@@ -328,7 +337,8 @@ public class SyntaxAnalyzer {
         }
 
         if (state == State.EXPECT_NEGATIVE_OPERAND) {
-            return "Після оператора '-' повинен бути операнд.";
+            String operator = previousToken == null ? "-" : previousToken.getValue();
+            return "Після оператора '" + operator + "' повинен бути операнд.";
         }
 
         if (state == State.EXPECT_FUNCTION_PAREN) {
