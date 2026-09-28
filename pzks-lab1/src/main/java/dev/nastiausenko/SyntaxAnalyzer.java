@@ -64,18 +64,24 @@ public class SyntaxAnalyzer {
             State nextState = getNextState(state, token, previousToken, pendingFunction, errors);
 
             if (nextState == null) {
-                previousToken = token;
-
-                if (tokenType == TokenType.LEFT_PAREN) {
+                if (tokenType == TokenType.MINUS && state == State.EXPECT_OPERAND) {
+                    state = State.EXPECT_NEGATIVE_OPERAND;
+                    previousToken = token;
+                } else if (tokenType == TokenType.LEFT_PAREN) {
                     state = State.EXPECT_OPERAND;
+                    previousToken = token;
                 } else if (state == State.EXPECT_FUNCTION_PAREN) {
                     pendingFunction = null;
 
                     if (isOperand(tokenType)) {
                         state = State.EXPECT_OPERATOR;
+                        previousToken = token;
                     } else {
                         state = State.EXPECT_OPERAND;
+                        previousToken = null;
                     }
+                } else if (state == State.EXPECT_NEGATIVE_OPERAND) {
+                    previousToken = token;
                 }
 
                 continue;
@@ -121,7 +127,7 @@ public class SyntaxAnalyzer {
 
     private void handleEnd(Token token, State state, Token previousToken, String pendingFunction,
                            Deque<Context> contextStack, List<SyntaxError> errors) {
-        if (state == State.EXPECT_OPERAND && previousToken != null) {
+        if ((state == State.EXPECT_OPERAND || state == State.EXPECT_NEGATIVE_OPERAND) && previousToken != null) {
             errors.add(new SyntaxError(
                     "Вираз закінчується " + previousToken.getType().getDescription() + " '" + previousToken.getValue() + "'.",
                     token.getPosition()
@@ -205,9 +211,12 @@ public class SyntaxAnalyzer {
             return State.EXPECT_OPERATOR;
         }
 
-        if (state == State.EXPECT_OPERAND) {
+        if (state == State.EXPECT_OPERAND || state == State.EXPECT_NEGATIVE_OPERAND) {
             String message;
-            if (previousToken.getType() == TokenType.LEFT_PAREN) {
+
+            if (state == State.EXPECT_NEGATIVE_OPERAND) {
+                message = "Перед закриваючою дужкою ')' після '-' повинен бути операнд.";
+            } else if (previousToken != null && previousToken.getType() == TokenType.LEFT_PAREN) {
                 message = "Порожні дужки '()' не допускаються.";
             } else {
                 message = "Перед закриваючою дужкою ')' повинен бути операнд.";
@@ -309,6 +318,10 @@ public class SyntaxAnalyzer {
             }
 
             return "Неочікуваний " + type.getDescription() + " '" + token.getValue() + "'. Очікувався оператор.";
+        }
+
+        if (state == State.EXPECT_NEGATIVE_OPERAND) {
+            return "Після оператора '-' повинен бути операнд.";
         }
 
         if (state == State.EXPECT_FUNCTION_PAREN) {

@@ -268,6 +268,35 @@ class SyntaxAnalyzerTests {
     }
 
     @Test
+    void shouldNotUseInvalidOperatorAsPreviousToken() {
+        List<SyntaxError> errors = analyze("+-+");
+
+        assertTrue(errors.stream().noneMatch(error ->
+                error.getPosition() == 1
+                        && error.getError().contains("Від'ємний операнд у середині виразу")));
+        assertTrue(errors.stream().anyMatch(error ->
+                error.getPosition() == 3
+                        && error.getError().equals("Вираз закінчується оператор '+'.")));
+    }
+
+    @Test
+    void shouldRejectNegativeOperandBeforeClosingParenthesis() {
+        List<SyntaxError> errors = analyze("+(-)+");
+
+        assertTrue(errors.stream().anyMatch(error ->
+                error.getError().contains("після '-' повинен бути операнд")));
+    }
+
+    @Test
+    void shouldReportMissingOperandAfterRepeatedMinus() {
+        List<SyntaxError> errors = analyze("-98+--()");
+
+        assertTrue(errors.stream().anyMatch(error ->
+                error.getPosition() == 5
+                        && error.getError().equals("Після оператора '-' повинен бути операнд.")));
+    }
+
+    @Test
     void shouldAcceptLargeValidExpression() {
         List<SyntaxError> errors = analyze(
                 "sqrt(pow(sin(x + cos(y)), 2) + pow(cos(z - PI), 2)) /(abs(a - b) + exp(-c))"
