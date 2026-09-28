@@ -49,9 +49,10 @@ public class SyntaxAnalyzer {
             }
 
             if (tokenType == TokenType.COMMA) {
-                handleComma(token, state, contextStack, errors);
-                state = State.EXPECT_OPERAND;
-                previousToken = token;
+                if (handleComma(token, state, contextStack, errors)) {
+                    state = State.EXPECT_OPERAND;
+                    previousToken = token;
+                }
                 continue;
             }
 
@@ -69,6 +70,11 @@ public class SyntaxAnalyzer {
                     previousToken = token;
                 } else if (tokenType == TokenType.LEFT_PAREN) {
                     state = State.EXPECT_OPERAND;
+                    previousToken = token;
+                } else if (tokenType == TokenType.FUNCTION && state == State.EXPECT_OPERATOR) {
+                    state = State.EXPECT_FUNCTION_PAREN;
+                    previousToken = token;
+                } else if (state == State.EXPECT_OPERATOR && isOperand(tokenType)) {
                     previousToken = token;
                 } else if (state == State.EXPECT_FUNCTION_PAREN) {
                     pendingFunction = null;
@@ -149,12 +155,12 @@ public class SyntaxAnalyzer {
         }
     }
 
-    private void handleComma(Token token, State state, Deque<Context> contextStack, List<SyntaxError> errors) {
+    private boolean handleComma(Token token, State state, Deque<Context> contextStack, List<SyntaxError> errors) {
         if (contextStack.isEmpty()) {
             errors.add(new SyntaxError("Кома не може використовуватися поза функцією.",
                     token.getPosition()
             ));
-            return;
+            return false;
         }
 
         Context context = contextStack.peek();
@@ -164,7 +170,7 @@ public class SyntaxAnalyzer {
             errors.add(new SyntaxError("Кома не може використовуватися поза функцією.",
                     token.getPosition()
             ));
-            return;
+            return false;
         }
 
         boolean supportsMultipleArguments = "pow".equals(functionName) || functionName.matches("f\\d+");
@@ -174,14 +180,14 @@ public class SyntaxAnalyzer {
                     token.getPosition()
             ));
 
-            return;
+            return false;
         }
 
         if (state != State.EXPECT_OPERATOR) {
             errors.add(new SyntaxError("Перед комою повинен бути аргумент функції.",
                     token.getPosition()
             ));
-            return;
+            return false;
         }
 
         if (context.getArgumentCount() >= 2) {
@@ -190,10 +196,11 @@ public class SyntaxAnalyzer {
                     token.getPosition()
             ));
             context.setTooManyArguments();
-            return;
+            return false;
         }
 
         context.incrementArgumentCount();
+        return true;
     }
 
     private State handleRightParen(Token token, State state, Token previousToken, Deque<Context> contextStack, List<SyntaxError> errors) {
