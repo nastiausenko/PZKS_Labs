@@ -276,7 +276,7 @@ class SyntaxAnalyzerTests {
                         && error.getError().contains("Від'ємний операнд у середині виразу")));
         assertTrue(errors.stream().anyMatch(error ->
                 error.getPosition() == 3
-                        && error.getError().equals("Вираз закінчується оператор '+'.")));
+                        && error.getError().equals("Вираз закінчується оператором '+'.")));
     }
 
     @Test
