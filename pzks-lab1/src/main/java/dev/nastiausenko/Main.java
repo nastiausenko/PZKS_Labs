@@ -33,8 +33,19 @@ public class Main {
                 ExpressionParser expressionParser = new ExpressionParser(tokens);
                 ExpressionNode root = expressionParser.parse();
 
-                System.out.println("\nДерево арифметичного виразу:");
+                System.out.println("\nПочаткове дерево:");
                 root.printTree("", true);
+
+                try {
+                    ExpressionOptimizer optimizer = new ExpressionOptimizer();
+                    ExpressionNode optimizedRoot = optimizer.optimize(root);
+
+                    System.out.println("\nОптимізоване дерево:");
+                    optimizedRoot.printTree("", true);
+
+                } catch (ArithmeticException exception) {
+                    System.out.println("\nПомилка оптимізації: " + exception.getMessage());
+                }
             }
         }
 
