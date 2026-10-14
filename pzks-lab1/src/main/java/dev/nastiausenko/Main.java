@@ -25,18 +25,16 @@ public class Main {
             List<LexicalError> lexicalErrors = lexer.getErrors();
             List<SyntaxError> errors = syntaxAnalyzer.analyze(tokens);
 
-            System.out.println("\nТокени:");
-
-            for (Token token : tokens) {
-                if (token.getType() != TokenType.END) {
-                    System.out.printf("  %-12s '%s'%n", token.getType(), token.getValue());
-                }
-            }
-
             if (!lexicalErrors.isEmpty() || !errors.isEmpty()) {
                 printErrors(input, lexicalErrors, errors);
             } else {
                 System.out.println("\nПомилок не виявлено");
+
+                ExpressionParser expressionParser = new ExpressionParser(tokens);
+                ExpressionNode root = expressionParser.parse();
+
+                System.out.println("\nДерево арифметичного виразу:");
+                root.printTree("", true);
             }
         }
 
