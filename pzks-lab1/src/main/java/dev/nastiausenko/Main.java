@@ -1,5 +1,15 @@
 package dev.nastiausenko;
 
+import dev.nastiausenko.expression.ExpressionNode;
+import dev.nastiausenko.expression.ExpressionOptimizer;
+import dev.nastiausenko.expression.ExpressionParser;
+import dev.nastiausenko.expression.ParallelTreeBuilder;
+import dev.nastiausenko.lexer.Lexer;
+import dev.nastiausenko.lexer.LexicalError;
+import dev.nastiausenko.lexer.Token;
+import dev.nastiausenko.syntax.SyntaxAnalyzer;
+import dev.nastiausenko.syntax.SyntaxError;
+
 import java.util.List;
 import java.util.Scanner;
 

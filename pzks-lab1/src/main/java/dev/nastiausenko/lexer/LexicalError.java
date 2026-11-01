@@ -1,4 +1,4 @@
-package dev.nastiausenko;
+package dev.nastiausenko.lexer;
 
 public record LexicalError(String error, int position) {
 

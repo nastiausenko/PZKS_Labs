@@ -1,4 +1,4 @@
-package dev.nastiausenko;
+package dev.nastiausenko.lexer;
 
 import java.util.ArrayList;
 import java.util.List;

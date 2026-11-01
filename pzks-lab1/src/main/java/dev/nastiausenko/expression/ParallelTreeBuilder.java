@@ -1,4 +1,6 @@
-package dev.nastiausenko;
+package dev.nastiausenko.expression;
+
+import dev.nastiausenko.lexer.TokenType;
 
 import java.util.ArrayList;
 import java.util.Comparator;
