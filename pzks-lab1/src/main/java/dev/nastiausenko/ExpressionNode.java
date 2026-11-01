@@ -40,6 +40,16 @@ public class ExpressionNode {
         return children.isEmpty();
     }
 
+    public int getOperationCount() {
+        int count = isLeaf() ? 0 : 1;
+
+        for (ExpressionNode child : children) {
+            count += child.getOperationCount();
+        }
+
+        return count;
+    }
+
     public int getHeight() {
         int height = 0;
 

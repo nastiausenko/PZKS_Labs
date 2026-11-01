@@ -41,7 +41,7 @@ public class ParallelTreeBuilder {
             collectTerms(node.getChildren().get(1), !inverted, directOperator, inverseOperator, terms);
 
         } else if (directOperator == TokenType.PLUS && "unary-".equals(node.getValue())) {
-            collectTerms(node.getChildren().getFirst(), !inverted, directOperator, inverseOperator, terms);
+            collectTerms(node.getChildren().get(0), !inverted, directOperator, inverseOperator, terms);
 
         } else {
             terms.add(new Term(build(node), inverted));
@@ -61,21 +61,40 @@ public class ParallelTreeBuilder {
             }
         }
 
+        ExpressionNode negatedSum = null;
+
         if (allInverted) {
-            Term first = terms.getFirst();
+            List<Term> positiveTerms = new ArrayList<>();
+
+            for (Term term : terms) {
+                positiveTerms.add(new Term(term.node(), false));
+            }
+
+            negatedSum = new ExpressionNode(TokenType.MINUS, "unary-", position);
+            negatedSum.addChild(buildBalanced(positiveTerms, directOperator, inverseOperator, position));
+
+            Term first = terms.get(0);
             ExpressionNode minus = new ExpressionNode(TokenType.MINUS, "unary-", position);
             minus.addChild(first.node());
             terms.set(0, new Term(minus, false));
         }
 
         while (terms.size() > 1) {
-            // Спочатку об'єднуємо підвирази з найменшою висотою.
-            // За однакової висоти надаємо перевагу від'ємним доданкам або знаменникам.
-            terms.sort(Comparator.comparingInt((Term term) -> term.node().getHeight())
-                    .thenComparingInt(term -> term.inverted() ? 0 : 1));
+            int invertedCount = 0;
 
-            Term first = terms.removeFirst();
-            Term second = terms.removeFirst();
+            for (Term term : terms) {
+                if (term.inverted()) {
+                    invertedCount++;
+                }
+            }
+
+            boolean preferInverted = directOperator == TokenType.PLUS || invertedCount * 2 > terms.size();
+
+            terms.sort(Comparator.comparingInt((Term term) -> term.node().getHeight())
+                    .thenComparingInt(term -> term.inverted() == preferInverted ? 0 : 1));
+
+            Term first = terms.remove(0);
+            Term second = terms.remove(0);
 
             ExpressionNode parent;
             boolean inverted;
@@ -95,7 +114,14 @@ public class ParallelTreeBuilder {
             terms.add(new Term(parent, inverted));
         }
 
-        return terms.getFirst().node();
+        ExpressionNode result = terms.get(0).node();
+
+        if (negatedSum != null && negatedSum.getHeight() <= result.getHeight()
+                && negatedSum.getWidth() >= result.getWidth()) {
+            return negatedSum;
+        }
+
+        return result;
     }
 
     private ExpressionNode createOperator(TokenType type, int position) {
@@ -110,7 +136,6 @@ public class ParallelTreeBuilder {
         return new ExpressionNode(type, value, position);
     }
 
-    // inverted позначає від'ємний доданок або множник у знаменнику.
     private record Term(ExpressionNode node, boolean inverted) {
     }
 }
