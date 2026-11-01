@@ -3,8 +3,15 @@ package dev.nastiausenko;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 
 public class ParallelTreeBuilder {
+    private static final Map<TokenType, String> OPERATOR_VALUES = Map.of(
+            TokenType.PLUS, "+",
+            TokenType.MINUS, "-",
+            TokenType.MULTIPLY, "*",
+            TokenType.DIVIDE, "/"
+    );
 
     public ExpressionNode build(ExpressionNode node) {
         if (node == null || node.isLeaf()) {
@@ -125,13 +132,11 @@ public class ParallelTreeBuilder {
     }
 
     private ExpressionNode createOperator(TokenType type, int position) {
-        String value = switch (type) {
-            case PLUS -> "+";
-            case MINUS -> "-";
-            case MULTIPLY -> "*";
-            case DIVIDE -> "/";
-            default -> throw new IllegalArgumentException("Неочікуваний оператор: " + type);
-        };
+        String value = OPERATOR_VALUES.get(type);
+
+        if (value == null) {
+            throw new IllegalArgumentException("Неочікуваний оператор: " + type);
+        }
 
         return new ExpressionNode(type, value, position);
     }

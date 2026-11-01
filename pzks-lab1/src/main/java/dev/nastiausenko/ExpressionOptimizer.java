@@ -2,8 +2,24 @@ package dev.nastiausenko;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.function.DoubleBinaryOperator;
+import java.util.function.UnaryOperator;
 
 public class ExpressionOptimizer {
+    private static final Map<TokenType, DoubleBinaryOperator> OPERATIONS = Map.of(
+            TokenType.PLUS, Double::sum,
+            TokenType.MINUS, (left, right) -> left - right,
+            TokenType.MULTIPLY, (left, right) -> left * right,
+            TokenType.DIVIDE, (left, right) -> left / right
+    );
+
+    private final Map<TokenType, UnaryOperator<ExpressionNode>> simplifiers = Map.of(
+            TokenType.PLUS, this::simplifyAddition,
+            TokenType.MINUS, this::simplifySubtraction,
+            TokenType.MULTIPLY, this::simplifyMultiplicationAndDivision,
+            TokenType.DIVIDE, this::simplifyMultiplicationAndDivision
+    );
 
     public ExpressionNode optimize(ExpressionNode node) {
         if (node == null || node.isLeaf()) {
@@ -74,45 +90,39 @@ public class ExpressionOptimizer {
                 return optimize(minus);
             }
 
-            switch (node.getType()) {
-                case PLUS:
-                    if (isZero(left)) {
-                        return right;
-                    }
-
-                    if (isZero(right)) {
-                        return left;
-                    }
-
-                    if (isUnaryMinus(left) || isUnaryMinus(right)) {
-                        ExpressionNode negativeTerm = isUnaryMinus(left) ? left : right;
-                        ExpressionNode positiveTerm = isUnaryMinus(left) ? right : left;
-                        ExpressionNode subtraction = new ExpressionNode(TokenType.MINUS, "-", node.getPosition());
-                        subtraction.addChild(positiveTerm);
-                        subtraction.addChild(negativeTerm.getChildren().get(0));
-                        return optimize(subtraction);
-                    }
-
-                    break;
-
-                case MINUS:
-                    if (isZero(right)) {
-                        return left;
-                    }
-
-                    break;
-
-                case MULTIPLY:
-                case DIVIDE:
-                    return simplifyMultiplicationAndDivision(node);
-
-                default:
-                    break;
-            }
+            return simplifiers.getOrDefault(node.getType(), UnaryOperator.identity()).apply(node);
         }
 
-        if (node.getType() == TokenType.PLUS) {
-            return combineAdditionConstants(node);
+        return node;
+    }
+
+    private ExpressionNode simplifyAddition(ExpressionNode node) {
+        ExpressionNode left = node.getChildren().get(0);
+        ExpressionNode right = node.getChildren().get(1);
+
+        if (isZero(left)) {
+            return right;
+        }
+
+        if (isZero(right)) {
+            return left;
+        }
+
+        if (isUnaryMinus(left) || isUnaryMinus(right)) {
+            ExpressionNode negativeTerm = isUnaryMinus(left) ? left : right;
+            ExpressionNode positiveTerm = isUnaryMinus(left) ? right : left;
+            ExpressionNode subtraction = new ExpressionNode(TokenType.MINUS, "-", node.getPosition());
+            subtraction.addChild(positiveTerm);
+            subtraction.addChild(negativeTerm.getChildren().get(0));
+            return optimize(subtraction);
+        }
+
+        return combineAdditionConstants(node);
+    }
+
+    private ExpressionNode simplifySubtraction(ExpressionNode node) {
+        if (isZero(node.getChildren().get(1))) {
+            return node.getChildren().get(0);
         }
 
         return node;
@@ -179,10 +189,7 @@ public class ExpressionOptimizer {
     }
 
     private boolean isArithmeticOperator(ExpressionNode node) {
-        return node.getType() == TokenType.PLUS
-                || node.getType() == TokenType.MINUS
-                || node.getType() == TokenType.MULTIPLY
-                || node.getType() == TokenType.DIVIDE;
+        return OPERATIONS.containsKey(node.getType());
     }
 
     private boolean hasTwoNumericChildren(ExpressionNode node) {
@@ -195,35 +202,13 @@ public class ExpressionOptimizer {
         double left = getNumber(node.getChildren().get(0));
         double right = getNumber(node.getChildren().get(1));
 
-        double result;
-
-        switch (node.getType()) {
-            case PLUS:
-                result = left + right;
-                break;
-
-            case MINUS:
-                result = left - right;
-                break;
-
-            case MULTIPLY:
-                result = left * right;
-                break;
-
-            case DIVIDE:
-                if (right == 0.0) {
-                    throw new ArithmeticException(
-                            "Ділення на 0 на позиції " + node.getChildren().get(1).getPosition()
-                    );
-                }
-
-                result = left / right;
-                break;
-
-            default:
-                return node;
+        if (node.getType() == TokenType.DIVIDE && right == 0.0) {
+            throw new ArithmeticException(
+                    "Ділення на 0 на позиції " + node.getChildren().get(1).getPosition()
+            );
         }
 
+        double result = OPERATIONS.get(node.getType()).applyAsDouble(left, right);
         return createNumber(result, node.getPosition());
     }
 
