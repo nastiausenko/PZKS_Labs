@@ -1,4 +1,7 @@
-package dev.nastiausenko;
+package dev.nastiausenko.syntax;
+
+import dev.nastiausenko.lexer.Token;
+import dev.nastiausenko.lexer.TokenType;
 
 import java.util.*;
 

@@ -1,5 +1,9 @@
 package dev.nastiausenko;
 
+import dev.nastiausenko.lexer.Lexer;
+import dev.nastiausenko.lexer.LexicalError;
+import dev.nastiausenko.lexer.Token;
+import dev.nastiausenko.lexer.TokenType;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;

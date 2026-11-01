@@ -1,4 +1,4 @@
-package dev.nastiausenko;
+package dev.nastiausenko.lexer;
 
 public enum TokenType {
     NUMBER("числом"),
