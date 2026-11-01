@@ -12,6 +12,7 @@ public class ParallelTreeBuilder {
             TokenType.MULTIPLY, "*",
             TokenType.DIVIDE, "/"
     );
+    private static final Comparator<Term> BY_HEIGHT = Comparator.comparingInt(term -> term.node().getHeight());
 
     public ExpressionNode build(ExpressionNode node) {
         if (node == null || node.isLeaf()) {
@@ -19,17 +20,11 @@ public class ParallelTreeBuilder {
         }
 
         if (node.getType() == TokenType.PLUS || node.getType() == TokenType.MINUS) {
-            List<Term> terms = new ArrayList<>();
-            collectTerms(node, false, TokenType.PLUS, TokenType.MINUS, terms);
-
-            return buildBalanced(terms, TokenType.PLUS, TokenType.MINUS, node.getPosition());
+            return buildGroup(node, TokenType.PLUS, TokenType.MINUS);
         }
 
         if (node.getType() == TokenType.MULTIPLY || node.getType() == TokenType.DIVIDE) {
-            List<Term> terms = new ArrayList<>();
-            collectTerms(node, false, TokenType.MULTIPLY, TokenType.DIVIDE, terms);
-
-            return buildBalanced(terms, TokenType.MULTIPLY, TokenType.DIVIDE, node.getPosition());
+            return buildGroup(node, TokenType.MULTIPLY, TokenType.DIVIDE);
         }
 
         node.getChildren().replaceAll(this::build);
@@ -37,88 +32,51 @@ public class ParallelTreeBuilder {
         return node;
     }
 
+    private ExpressionNode buildGroup(ExpressionNode node, TokenType directOperator, TokenType inverseOperator) {
+        List<Term> terms = new ArrayList<>();
+        collectTerms(node, false, directOperator, inverseOperator, terms);
+        return buildBalanced(terms, directOperator, inverseOperator, node.getPosition());
+    }
+
     private void collectTerms(ExpressionNode node, boolean inverted, TokenType directOperator,
                               TokenType inverseOperator, List<Term> terms) {
-        if (node.getType() == directOperator && node.getChildren().size() == 2) {
+        if (node.isBinaryOperator(directOperator)) {
             collectTerms(node.getChildren().get(0), inverted, directOperator, inverseOperator, terms);
             collectTerms(node.getChildren().get(1), inverted, directOperator, inverseOperator, terms);
+            return;
+        }
 
-        } else if (node.getType() == inverseOperator && node.getChildren().size() == 2) {
+        if (node.isBinaryOperator(inverseOperator)) {
             collectTerms(node.getChildren().get(0), inverted, directOperator, inverseOperator, terms);
             collectTerms(node.getChildren().get(1), !inverted, directOperator, inverseOperator, terms);
-
-        } else if (directOperator == TokenType.PLUS && "unary-".equals(node.getValue())) {
-            collectTerms(node.getChildren().get(0), !inverted, directOperator, inverseOperator, terms);
-
-        } else {
-            terms.add(new Term(build(node), inverted));
+            return;
         }
+
+        if (directOperator == TokenType.PLUS && node.isUnaryMinus()) {
+            collectTerms(node.getChildren().get(0), !inverted, directOperator, inverseOperator, terms);
+            return;
+        }
+
+        terms.add(new Term(build(node), inverted));
     }
 
     private ExpressionNode buildBalanced(List<Term> terms, TokenType directOperator,
                                          TokenType inverseOperator, int position) {
-        terms.sort(Comparator.comparingInt((Term term) -> term.node().getHeight()));
-
-        boolean allInverted = true;
-
-        for (Term term : terms) {
-            if (!term.inverted()) {
-                allInverted = false;
-                break;
-            }
-        }
-
+        terms.sort(BY_HEIGHT);
         ExpressionNode negatedSum = null;
 
-        if (allInverted) {
-            List<Term> positiveTerms = new ArrayList<>();
-
-            for (Term term : terms) {
-                positiveTerms.add(new Term(term.node(), false));
-            }
-
-            negatedSum = new ExpressionNode(TokenType.MINUS, "unary-", position);
-            negatedSum.addChild(buildBalanced(positiveTerms, directOperator, inverseOperator, position));
-
+        if (terms.stream().allMatch(Term::inverted)) {
+            negatedSum = buildNegatedSum(terms, directOperator, inverseOperator, position);
             Term first = terms.get(0);
-            ExpressionNode minus = new ExpressionNode(TokenType.MINUS, "unary-", position);
-            minus.addChild(first.node());
+            ExpressionNode minus = new ExpressionNode(TokenType.MINUS, "unary-", position, first.node());
             terms.set(0, new Term(minus, false));
         }
 
         while (terms.size() > 1) {
-            int invertedCount = 0;
-
-            for (Term term : terms) {
-                if (term.inverted()) {
-                    invertedCount++;
-                }
-            }
-
-            boolean preferInverted = directOperator == TokenType.PLUS || invertedCount * 2 > terms.size();
-
-            terms.sort(Comparator.comparingInt((Term term) -> term.node().getHeight())
-                    .thenComparingInt(term -> term.inverted() == preferInverted ? 0 : 1));
-
+            sortTerms(terms, directOperator);
             Term first = terms.remove(0);
             Term second = terms.remove(0);
-
-            ExpressionNode parent;
-            boolean inverted;
-
-            if (first.inverted() == second.inverted()) {
-                parent = createOperator(directOperator, position);
-                parent.addChild(first.node());
-                parent.addChild(second.node());
-                inverted = first.inverted();
-            } else {
-                parent = createOperator(inverseOperator, position);
-                parent.addChild(first.inverted() ? second.node() : first.node());
-                parent.addChild(first.inverted() ? first.node() : second.node());
-                inverted = false;
-            }
-
-            terms.add(new Term(parent, inverted));
+            terms.add(combineTerms(first, second, directOperator, inverseOperator, position));
         }
 
         ExpressionNode result = terms.get(0).node();
@@ -131,16 +89,47 @@ public class ParallelTreeBuilder {
         return result;
     }
 
-    private ExpressionNode createOperator(TokenType type, int position) {
+    private ExpressionNode buildNegatedSum(List<Term> terms, TokenType directOperator,
+                                           TokenType inverseOperator, int position) {
+        List<Term> positiveTerms = new ArrayList<>();
+
+        for (Term term : terms) {
+            positiveTerms.add(new Term(term.node(), false));
+        }
+
+        ExpressionNode sum = buildBalanced(positiveTerms, directOperator, inverseOperator, position);
+        return new ExpressionNode(TokenType.MINUS, "unary-", position, sum);
+    }
+
+    private void sortTerms(List<Term> terms, TokenType directOperator) {
+        long invertedCount = terms.stream().filter(Term::inverted).count();
+        boolean preferInverted = directOperator == TokenType.PLUS || invertedCount * 2 > terms.size();
+
+        terms.sort(BY_HEIGHT.thenComparingInt(term -> term.inverted() == preferInverted ? 0 : 1));
+    }
+
+    private Term combineTerms(Term first, Term second, TokenType directOperator,
+                              TokenType inverseOperator, int position) {
+        if (first.inverted() == second.inverted()) {
+            ExpressionNode parent = createOperator(directOperator, position, first.node(), second.node());
+            return new Term(parent, first.inverted());
+        }
+
+        ExpressionNode left = first.inverted() ? second.node() : first.node();
+        ExpressionNode right = first.inverted() ? first.node() : second.node();
+        ExpressionNode parent = createOperator(inverseOperator, position, left, right);
+        return new Term(parent, false);
+    }
+
+    private ExpressionNode createOperator(TokenType type, int position, ExpressionNode left, ExpressionNode right) {
         String value = OPERATOR_VALUES.get(type);
 
         if (value == null) {
             throw new IllegalArgumentException("Неочікуваний оператор: " + type);
         }
 
-        return new ExpressionNode(type, value, position);
+        return new ExpressionNode(type, value, position, left, right);
     }
 
-    private record Term(ExpressionNode node, boolean inverted) {
-    }
+    private record Term(ExpressionNode node, boolean inverted) { }
 }

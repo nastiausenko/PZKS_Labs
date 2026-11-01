@@ -16,6 +16,14 @@ public class ExpressionNode {
         this.children = new ArrayList<>();
     }
 
+    public ExpressionNode(TokenType type, String value, int position, ExpressionNode... children) {
+        this(type, value, position);
+
+        for (ExpressionNode child : children) {
+            addChild(child);
+        }
+    }
+
     public TokenType getType() {
         return type;
     }
@@ -38,6 +46,14 @@ public class ExpressionNode {
 
     public boolean isLeaf() {
         return children.isEmpty();
+    }
+
+    public boolean isUnaryMinus() {
+        return "unary-".equals(value) && children.size() == 1;
+    }
+
+    public boolean isBinaryOperator(TokenType operator) {
+        return type == operator && children.size() == 2;
     }
 
     public int getOperationCount() {

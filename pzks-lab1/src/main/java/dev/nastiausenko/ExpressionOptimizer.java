@@ -26,71 +26,49 @@ public class ExpressionOptimizer {
             return node;
         }
 
-        List<ExpressionNode> optimizedChildren = new ArrayList<>();
-
-        for (ExpressionNode child : node.getChildren()) {
-            optimizedChildren.add(optimize(child));
-        }
-
-        node.getChildren().clear();
-
-        for (ExpressionNode child : optimizedChildren) {
-            node.addChild(child);
-        }
-
-        if (node.getType() == TokenType.DIVIDE) {
-            ExpressionNode denominator = node.getChildren().get(1);
-
-            if (isZero(denominator)) {
-                throw new ArithmeticException(
-                        "Ділення на 0 на позиції " + denominator.getPosition()
-                );
-            }
-        }
+        node.getChildren().replaceAll(this::optimize);
+        validateDivision(node);
 
         if (isArithmeticOperator(node) && hasTwoNumericChildren(node)) {
             return calculate(node);
         }
 
-        if (isUnaryMinus(node)) {
-            ExpressionNode child = node.getChildren().get(0);
-
-            if (isNumber(child)) {
-                return createNumber(-getNumber(child), node.getPosition());
-            }
-
-            if (isUnaryMinus(child)) {
-                return child.getChildren().get(0);
-            }
-
-            if (child.getType() == TokenType.MINUS && child.getChildren().size() == 2) {
-                ExpressionNode left = child.getChildren().get(0);
-                child.getChildren().set(0, child.getChildren().get(1));
-                child.getChildren().set(1, left);
-                return optimize(child);
-            }
-
-            if ((child.getType() == TokenType.MULTIPLY || child.getType() == TokenType.DIVIDE)
-                    && reverseDifference(child)) {
-                return optimize(child);
-            }
+        if (node.isUnaryMinus()) {
+            return simplifyUnaryMinus(node);
         }
 
         if (node.getChildren().size() == 2) {
-            ExpressionNode left = node.getChildren().get(0);
-            ExpressionNode right = node.getChildren().get(1);
-
-            if (node.getType() == TokenType.PLUS && isUnaryMinus(left) && isUnaryMinus(right)) {
-                node.getChildren().set(0, left.getChildren().get(0));
-                node.getChildren().set(1, right.getChildren().get(0));
-
-                ExpressionNode result = optimize(node);
-                ExpressionNode minus = new ExpressionNode(TokenType.MINUS, "unary-", node.getPosition());
-                minus.addChild(result);
-                return optimize(minus);
-            }
-
             return simplifiers.getOrDefault(node.getType(), UnaryOperator.identity()).apply(node);
+        }
+
+        return node;
+    }
+
+    private void validateDivision(ExpressionNode node) {
+        if (node.getType() != TokenType.DIVIDE) {
+            return;
+        }
+
+        ExpressionNode denominator = node.getChildren().get(1);
+
+        if (isZero(denominator)) {
+            throw new ArithmeticException("Ділення на 0 на позиції " + denominator.getPosition());
+        }
+    }
+
+    private ExpressionNode simplifyUnaryMinus(ExpressionNode node) {
+        ExpressionNode operand = node.getChildren().get(0);
+
+        if (isNumber(operand)) {
+            return createNumber(-getNumber(operand), node.getPosition());
+        }
+
+        if (operand.isUnaryMinus()) {
+            return operand.getChildren().get(0);
+        }
+
+        if (reverseFirstDifference(operand)) {
+            return optimize(operand);
         }
 
         return node;
@@ -100,6 +78,12 @@ public class ExpressionOptimizer {
         ExpressionNode left = node.getChildren().get(0);
         ExpressionNode right = node.getChildren().get(1);
 
+        if (left.isUnaryMinus() && right.isUnaryMinus()) {
+            node.getChildren().set(0, left.getChildren().get(0));
+            node.getChildren().set(1, right.getChildren().get(0));
+            return negate(optimize(node), node.getPosition());
+        }
+
         if (isZero(left)) {
             return right;
         }
@@ -108,12 +92,13 @@ public class ExpressionOptimizer {
             return left;
         }
 
-        if (isUnaryMinus(left) || isUnaryMinus(right)) {
-            ExpressionNode negativeTerm = isUnaryMinus(left) ? left : right;
-            ExpressionNode positiveTerm = isUnaryMinus(left) ? right : left;
-            ExpressionNode subtraction = new ExpressionNode(TokenType.MINUS, "-", node.getPosition());
-            subtraction.addChild(positiveTerm);
-            subtraction.addChild(negativeTerm.getChildren().get(0));
+        if (left.isUnaryMinus() || right.isUnaryMinus()) {
+            ExpressionNode negativeTerm = left.isUnaryMinus() ? left : right;
+            ExpressionNode positiveTerm = left.isUnaryMinus() ? right : left;
+            ExpressionNode subtraction = new ExpressionNode(
+                    TokenType.MINUS, "-", node.getPosition(),
+                    positiveTerm, negativeTerm.getChildren().get(0)
+            );
             return optimize(subtraction);
         }
 
@@ -128,17 +113,18 @@ public class ExpressionOptimizer {
         return node;
     }
 
-    private boolean reverseDifference(ExpressionNode node) {
-        if (node.getType() == TokenType.MINUS && node.getChildren().size() == 2) {
+    private boolean reverseFirstDifference(ExpressionNode node) {
+        if (node.isBinaryOperator(TokenType.MINUS)) {
             ExpressionNode left = node.getChildren().get(0);
-            node.getChildren().set(0, node.getChildren().get(1));
+            ExpressionNode right = node.getChildren().get(1);
+            node.getChildren().set(0, right);
             node.getChildren().set(1, left);
             return true;
         }
 
         if (node.getType() == TokenType.MULTIPLY || node.getType() == TokenType.DIVIDE) {
             for (ExpressionNode child : node.getChildren()) {
-                if (reverseDifference(child)) {
+                if (reverseFirstDifference(child)) {
                     return true;
                 }
             }
@@ -148,12 +134,33 @@ public class ExpressionOptimizer {
     }
 
     private ExpressionNode simplifyMultiplicationAndDivision(ExpressionNode node) {
+        boolean negative = removeFactorSigns(node);
+        boolean multiplication = node.getType() == TokenType.MULTIPLY;
+        ExpressionNode left = node.getChildren().get(0);
+        ExpressionNode right = node.getChildren().get(1);
+
+        if (multiplication && (isZero(left) || isZero(right))) {
+            return createNumber(0, node.getPosition());
+        }
+
+        ExpressionNode result = node;
+
+        if (isOne(right)) {
+            result = left;
+        } else if (multiplication && isOne(left)) {
+            result = right;
+        }
+
+        return negative ? negate(result, node.getPosition()) : result;
+    }
+
+    private boolean removeFactorSigns(ExpressionNode node) {
         boolean negative = false;
 
         for (int i = 0; i < node.getChildren().size(); i++) {
             ExpressionNode child = node.getChildren().get(i);
 
-            if (isUnaryMinus(child)) {
+            if (child.isUnaryMinus()) {
                 child = child.getChildren().get(0);
                 negative = !negative;
             } else if (isNumber(child) && getNumber(child) < 0) {
@@ -164,28 +171,11 @@ public class ExpressionOptimizer {
             node.getChildren().set(i, child);
         }
 
-        ExpressionNode left = node.getChildren().get(0);
-        ExpressionNode right = node.getChildren().get(1);
+        return negative;
+    }
 
-        if (node.getType() == TokenType.MULTIPLY && (isZero(left) || isZero(right))) {
-            return createNumber(0, node.getPosition());
-        }
-
-        ExpressionNode result = node;
-
-        if (isOne(right)) {
-            result = left;
-        } else if (node.getType() == TokenType.MULTIPLY && isOne(left)) {
-            result = right;
-        }
-
-        if (negative) {
-            ExpressionNode minus = new ExpressionNode(TokenType.MINUS, "unary-", node.getPosition());
-            minus.addChild(result);
-            return optimize(minus);
-        }
-
-        return result;
+    private ExpressionNode negate(ExpressionNode node, int position) {
+        return optimize(new ExpressionNode(TokenType.MINUS, "unary-", position, node));
     }
 
     private boolean isArithmeticOperator(ExpressionNode node) {
@@ -201,12 +191,6 @@ public class ExpressionOptimizer {
     private ExpressionNode calculate(ExpressionNode node) {
         double left = getNumber(node.getChildren().get(0));
         double right = getNumber(node.getChildren().get(1));
-
-        if (node.getType() == TokenType.DIVIDE && right == 0.0) {
-            throw new ArithmeticException(
-                    "Ділення на 0 на позиції " + node.getChildren().get(1).getPosition()
-            );
-        }
 
         double result = OPERATIONS.get(node.getType()).applyAsDouble(left, right);
         return createNumber(result, node.getPosition());
@@ -242,34 +226,24 @@ public class ExpressionOptimizer {
         ExpressionNode result = nonConstantTerms.get(0);
 
         for (int i = 1; i < nonConstantTerms.size(); i++) {
-            ExpressionNode parent = new ExpressionNode(TokenType.PLUS, "+", node.getPosition());
-
-            parent.addChild(result);
-            parent.addChild(nonConstantTerms.get(i));
-
-            result = parent;
+            result = new ExpressionNode(TokenType.PLUS, "+", node.getPosition(), result, nonConstantTerms.get(i));
         }
 
         return result;
     }
 
     private void collectAdditionTerms(ExpressionNode node, List<ExpressionNode> terms) {
-        if (node.getType() == TokenType.PLUS && node.getChildren().size() == 2) {
-
+        if (node.isBinaryOperator(TokenType.PLUS)) {
             collectAdditionTerms(node.getChildren().get(0), terms);
             collectAdditionTerms(node.getChildren().get(1), terms);
-
-        } else {
-            terms.add(node);
+            return;
         }
+
+        terms.add(node);
     }
 
     private boolean isNumber(ExpressionNode node) {
         return node.getType() == TokenType.NUMBER;
-    }
-
-    private boolean isUnaryMinus(ExpressionNode node) {
-        return "unary-".equals(node.getValue()) && node.getChildren().size() == 1;
     }
 
     private double getNumber(ExpressionNode node) {

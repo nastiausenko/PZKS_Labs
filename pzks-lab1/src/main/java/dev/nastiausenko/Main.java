@@ -27,60 +27,67 @@ public class Main {
 
             List<Token> tokens = lexer.tokenize(input);
             List<LexicalError> lexicalErrors = lexer.getErrors();
-            List<SyntaxError> errors = syntaxAnalyzer.analyze(tokens);
+            List<SyntaxError> syntaxErrors = syntaxAnalyzer.analyze(tokens);
 
-            if (!lexicalErrors.isEmpty() || !errors.isEmpty()) {
-                printErrors(input, lexicalErrors, errors);
-            } else {
-                System.out.println("\nПомилок не виявлено");
-
-                ExpressionParser expressionParser = new ExpressionParser(tokens);
-                ExpressionNode root = expressionParser.parse();
-
-                System.out.println("\nПочаткове дерево:");
-                root.printTree("", true);
-                String initialStatistics = formatTreeStatistics("До оптимізації", root);
-
-                try {
-                    ExpressionOptimizer optimizer = new ExpressionOptimizer();
-                    ExpressionNode optimizedRoot = optimizer.optimize(root);
-
-                    System.out.println("\nОптимізоване дерево:");
-                    optimizedRoot.printTree("", true);
-                    String optimizedStatistics = formatTreeStatistics("Після оптимізації", optimizedRoot);
-
-                    ParallelTreeBuilder treeBuilder = new ParallelTreeBuilder();
-                    ExpressionNode parallelRoot = treeBuilder.build(optimizedRoot);
-
-                    System.out.println("\nДерево паралельної форми:");
-                    parallelRoot.printTree("", true);
-
-                    List<List<ExpressionNode>> levels = parallelRoot.getLevels();
-
-                    for (int i = 0; i < levels.size(); i++) {
-                        System.out.print("Ярус " + (i + 1) + ": ");
-
-                        for (ExpressionNode operation : levels.get(i)) {
-                            System.out.print(operation.getValue() + " ");
-                        }
-
-                        System.out.println();
-                    }
-
-                    System.out.println("\nПорівняння дерев:");
-                    System.out.printf("%-26s | %8s | %6s | %12s%n", "Етап", "Операції", "Яруси", "Макс. ширина");
-                    System.out.println("-".repeat(61));
-                    System.out.print(initialStatistics);
-                    System.out.print(optimizedStatistics);
-                    System.out.print(formatTreeStatistics("Після розпаралелювання", parallelRoot));
-
-                } catch (ArithmeticException exception) {
-                    System.out.println("\nПомилка оптимізації: " + exception.getMessage());
-                }
+            if (!lexicalErrors.isEmpty() || !syntaxErrors.isEmpty()) {
+                printErrors(input, lexicalErrors, syntaxErrors);
+                continue;
             }
+
+            processExpression(tokens);
         }
 
         scanner.close();
+    }
+
+    private static void processExpression(List<Token> tokens) {
+        System.out.println("\nПомилок не виявлено");
+
+        ExpressionNode root = new ExpressionParser(tokens).parse();
+        printTree("Початкове дерево", root);
+
+        String initialStatistics = formatTreeStatistics("До оптимізації", root);
+
+        try {
+            ExpressionNode optimizedRoot = new ExpressionOptimizer().optimize(root);
+            printTree("Оптимізоване дерево", optimizedRoot);
+            String optimizedStatistics = formatTreeStatistics("Після оптимізації", optimizedRoot);
+
+            ExpressionNode parallelRoot = new ParallelTreeBuilder().build(optimizedRoot);
+            printTree("Дерево паралельної форми", parallelRoot);
+            printLevels(parallelRoot);
+            printComparison(initialStatistics, optimizedStatistics, parallelRoot);
+        } catch (ArithmeticException exception) {
+            System.out.println("\nПомилка оптимізації: " + exception.getMessage());
+        }
+    }
+
+    private static void printTree(String title, ExpressionNode root) {
+        System.out.println("\n" + title + ":");
+        root.printTree("", true);
+    }
+
+    private static void printLevels(ExpressionNode root) {
+        List<List<ExpressionNode>> levels = root.getLevels();
+
+        for (int i = 0; i < levels.size(); i++) {
+            System.out.print("Ярус " + (i + 1) + ": ");
+
+            for (ExpressionNode operation : levels.get(i)) {
+                System.out.print(operation.getValue() + " ");
+            }
+
+            System.out.println();
+        }
+    }
+
+    private static void printComparison(String initialStatistics, String optimizedStatistics, ExpressionNode parallelRoot) {
+        System.out.println("\nПорівняння дерев:");
+        System.out.printf("%-26s | %8s | %6s | %12s%n", "Етап", "Операції", "Яруси", "Макс. ширина");
+        System.out.println("-".repeat(61));
+        System.out.print(initialStatistics);
+        System.out.print(optimizedStatistics);
+        System.out.print(formatTreeStatistics("Після розпаралелювання", parallelRoot));
     }
 
     private static String formatTreeStatistics(String stage, ExpressionNode root) {

@@ -30,16 +30,13 @@ public class ExpressionParser {
             Token operator = previousToken();
             ExpressionNode right = parseTerm();
 
-            ExpressionNode parent = new ExpressionNode(
+            left = new ExpressionNode(
                     operator.getType(),
                     operator.getValue(),
-                    operator.getPosition()
+                    operator.getPosition(),
+                    left,
+                    right
             );
-
-            parent.addChild(left);
-            parent.addChild(right);
-
-            left = parent;
         }
 
         return left;
@@ -52,16 +49,13 @@ public class ExpressionParser {
             Token operator = previousToken();
             ExpressionNode right = parseUnary();
 
-            ExpressionNode parent = new ExpressionNode(
+            left = new ExpressionNode(
                     operator.getType(),
                     operator.getValue(),
-                    operator.getPosition()
+                    operator.getPosition(),
+                    left,
+                    right
             );
-
-            parent.addChild(left);
-            parent.addChild(right);
-
-            left = parent;
         }
 
         return left;
@@ -72,11 +66,7 @@ public class ExpressionParser {
             Token operator = previousToken();
             ExpressionNode operand = parseUnary();
 
-            ExpressionNode node = new ExpressionNode(TokenType.MINUS, "unary-", operator.getPosition());
-
-            node.addChild(operand);
-
-            return node;
+            return new ExpressionNode(TokenType.MINUS, "unary-", operator.getPosition(), operand);
         }
 
         return parsePrimary();
@@ -110,11 +100,9 @@ public class ExpressionParser {
                     function.getPosition()
             );
 
-            node.addChild(parseExpression());
-
-            while (match(TokenType.COMMA)) {
+            do {
                 node.addChild(parseExpression());
-            }
+            } while (match(TokenType.COMMA));
 
             consume(TokenType.RIGHT_PAREN, "Очікувалася закриваюча дужка ')'.");
 
