@@ -39,6 +39,7 @@ public class Main {
 
                 System.out.println("\nПочаткове дерево:");
                 root.printTree("", true);
+                String initialStatistics = formatTreeStatistics("До оптимізації", root);
 
                 try {
                     ExpressionOptimizer optimizer = new ExpressionOptimizer();
@@ -46,14 +47,13 @@ public class Main {
 
                     System.out.println("\nОптимізоване дерево:");
                     optimizedRoot.printTree("", true);
+                    String optimizedStatistics = formatTreeStatistics("Після оптимізації", optimizedRoot);
 
                     ParallelTreeBuilder treeBuilder = new ParallelTreeBuilder();
                     ExpressionNode parallelRoot = treeBuilder.build(optimizedRoot);
 
                     System.out.println("\nДерево паралельної форми:");
                     parallelRoot.printTree("", true);
-                    System.out.println("Кількість ярусів операцій: " + parallelRoot.getHeight());
-                    System.out.println("Максимальна ширина: " + parallelRoot.getWidth());
 
                     List<List<ExpressionNode>> levels = parallelRoot.getLevels();
 
@@ -67,6 +67,13 @@ public class Main {
                         System.out.println();
                     }
 
+                    System.out.println("\nПорівняння дерев:");
+                    System.out.printf("%-26s | %8s | %6s | %12s%n", "Етап", "Операції", "Яруси", "Макс. ширина");
+                    System.out.println("-".repeat(61));
+                    System.out.print(initialStatistics);
+                    System.out.print(optimizedStatistics);
+                    System.out.print(formatTreeStatistics("Після розпаралелювання", parallelRoot));
+
                 } catch (ArithmeticException exception) {
                     System.out.println("\nПомилка оптимізації: " + exception.getMessage());
                 }
@@ -74,6 +81,11 @@ public class Main {
         }
 
         scanner.close();
+    }
+
+    private static String formatTreeStatistics(String stage, ExpressionNode root) {
+        return String.format("%-26s | %8d | %6d | %12d%n",
+                stage, root.getOperationCount(), root.getHeight(), root.getWidth());
     }
 
     private static void printErrors(String expression, List<LexicalError> lexicalErrors, List<SyntaxError> syntaxErrors) {
