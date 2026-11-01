@@ -39,6 +39,24 @@ public class SyntaxAnalyzer {
                 continue;
             }
 
+            if (!contextStack.isEmpty() && contextStack.peek().hasTooManyArguments()) {
+                Context context = contextStack.peek();
+
+                if (tokenType == TokenType.LEFT_PAREN) {
+                    context.enterSkippedParenthesis();
+                } else if (tokenType == TokenType.RIGHT_PAREN) {
+                    if (context.hasSkippedParentheses()) {
+                        context.leaveSkippedParenthesis();
+                    } else {
+                        contextStack.pop();
+                        state = State.EXPECT_OPERATOR;
+                        previousToken = token;
+                    }
+                }
+
+                continue;
+            }
+
             if (tokenType == TokenType.FUNCTION) {
                 pendingFunction = token.getValue();
             }
@@ -57,6 +75,15 @@ public class SyntaxAnalyzer {
             }
 
             if (tokenType == TokenType.RIGHT_PAREN) {
+                if (state == State.EXPECT_FUNCTION_PAREN) {
+                    errors.add(new SyntaxError(
+                            "Після функції '" + pendingFunction + "' очікувалася відкриваюча дужка '('.",
+                            token.getPosition()
+                    ));
+                    pendingFunction = null;
+                    state = State.EXPECT_OPERATOR;
+                }
+
                 state = handleRightParen(token, state, previousToken, contextStack, errors);
                 previousToken = token;
                 continue;
@@ -328,7 +355,8 @@ public class SyntaxAnalyzer {
         }
 
         if (state == State.EXPECT_NEGATIVE_OPERAND) {
-            return "Після оператора '-' повинен бути операнд.";
+            String operator = previousToken == null ? "-" : previousToken.getValue();
+            return "Після оператора '" + operator + "' повинен бути операнд.";
         }
 
         if (state == State.EXPECT_FUNCTION_PAREN) {
@@ -342,11 +370,13 @@ public class SyntaxAnalyzer {
         private final String functionName;
         private int argumentCount;
         private boolean tooManyArguments;
+        private int skippedParenthesisDepth;
 
         public Context(String functionName) {
             this.functionName = functionName;
             this.argumentCount = 0;
             this.tooManyArguments = false;
+            this.skippedParenthesisDepth = 0;
         }
 
         public String getFunctionName() {
@@ -367,6 +397,18 @@ public class SyntaxAnalyzer {
 
         public void setTooManyArguments() {
             tooManyArguments = true;
+        }
+
+        public void enterSkippedParenthesis() {
+            skippedParenthesisDepth++;
+        }
+
+        public boolean hasSkippedParentheses() {
+            return skippedParenthesisDepth > 0;
+        }
+
+        public void leaveSkippedParenthesis() {
+            skippedParenthesisDepth--;
         }
     }
 }

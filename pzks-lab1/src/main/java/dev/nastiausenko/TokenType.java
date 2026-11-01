@@ -1,24 +1,24 @@
 package dev.nastiausenko;
 
 public enum TokenType {
-    NUMBER("число"),
-    IDENTIFIER("ідентифікатор"),
+    NUMBER("числом"),
+    IDENTIFIER("ідентифікатором"),
 
-    PLUS("+", "оператор"),
-    MINUS("-", "оператор"),
-    MULTIPLY("*", "оператор"),
-    DIVIDE("/", "оператор"),
+    PLUS("+", "оператором"),
+    MINUS("-", "оператором"),
+    MULTIPLY("*", "оператором"),
+    DIVIDE("/", "оператором"),
 
-    LEFT_PAREN("(", "відкриваюча дужка"),
-    RIGHT_PAREN(")", "закриваюча дужка"),
+    LEFT_PAREN("(", "відкриваючою дужкою"),
+    RIGHT_PAREN(")", "закриваючою дужкою"),
     COMMA(",", "кома"),
 
     FUNCTION(new String[]{"sin", "cos", "tan", "asin", "acos", "atan",
                     "sqrt", "abs", "log", "ln", "exp", "pow"},
-            "функція"),
+            "функцією"),
 
     CONSTANT(new String[]{"PI", "E"},
-            "константа"),
+            "константою"),
 
     END("кінець виразу");
 
