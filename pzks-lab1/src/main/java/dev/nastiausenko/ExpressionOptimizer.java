@@ -27,7 +27,7 @@ public class ExpressionOptimizer {
 
             if (isZero(denominator)) {
                 throw new ArithmeticException(
-                        "Ділення на 0 на позиції " + node.getPosition()
+                        "Ділення на 0 на позиції " + denominator.getPosition()
                 );
             }
         }
@@ -37,7 +37,7 @@ public class ExpressionOptimizer {
         }
 
         if ("unary-".equals(node.getValue()) && node.getChildren().size() == 1 && isNumber(node.getChildren().get(0))) {
-            double value = -getNumber(node.getChildren().get(0));
+            double value = -getNumber(node.getChildren().getFirst());
             return createNumber(value, node.getPosition());
         }
 
@@ -51,6 +51,13 @@ public class ExpressionOptimizer {
                         return right;
                     }
 
+                    if (isZero(right)) {
+                        return left;
+                    }
+
+                    break;
+
+                case MINUS:
                     if (isZero(right)) {
                         return left;
                     }
@@ -126,7 +133,7 @@ public class ExpressionOptimizer {
             case DIVIDE:
                 if (right == 0.0) {
                     throw new ArithmeticException(
-                            "Ділення на 0 на позиції " + node.getPosition()
+                            "Ділення на 0 на позиції " + node.getChildren().get(1).getPosition()
                     );
                 }
 
@@ -167,7 +174,7 @@ public class ExpressionOptimizer {
             nonConstantTerms.add(createNumber(constantSum, node.getPosition()));
         }
 
-        ExpressionNode result = nonConstantTerms.get(0);
+        ExpressionNode result = nonConstantTerms.getFirst();
 
         for (int i = 1; i < nonConstantTerms.size(); i++) {
             ExpressionNode parent = new ExpressionNode(TokenType.PLUS, "+", node.getPosition());

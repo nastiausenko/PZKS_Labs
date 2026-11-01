@@ -21,6 +21,10 @@ public class Main {
                 break;
             }
 
+            if (input.isBlank()) {
+                continue;
+            }
+
             List<Token> tokens = lexer.tokenize(input);
             List<LexicalError> lexicalErrors = lexer.getErrors();
             List<SyntaxError> errors = syntaxAnalyzer.analyze(tokens);
@@ -42,6 +46,26 @@ public class Main {
 
                     System.out.println("\nОптимізоване дерево:");
                     optimizedRoot.printTree("", true);
+
+                    ParallelTreeBuilder treeBuilder = new ParallelTreeBuilder();
+                    ExpressionNode parallelRoot = treeBuilder.build(optimizedRoot);
+
+                    System.out.println("\nДерево паралельної форми:");
+                    parallelRoot.printTree("", true);
+                    System.out.println("Кількість ярусів операцій: " + parallelRoot.getHeight());
+                    System.out.println("Максимальна ширина: " + parallelRoot.getWidth());
+
+                    List<List<ExpressionNode>> levels = parallelRoot.getLevels();
+
+                    for (int i = 0; i < levels.size(); i++) {
+                        System.out.print("Ярус " + (i + 1) + ": ");
+
+                        for (ExpressionNode operation : levels.get(i)) {
+                            System.out.print(operation.getValue() + " ");
+                        }
+
+                        System.out.println();
+                    }
 
                 } catch (ArithmeticException exception) {
                     System.out.println("\nПомилка оптимізації: " + exception.getMessage());

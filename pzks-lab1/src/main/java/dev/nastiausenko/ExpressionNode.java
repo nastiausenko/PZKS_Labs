@@ -40,6 +40,50 @@ public class ExpressionNode {
         return children.isEmpty();
     }
 
+    public int getHeight() {
+        int height = 0;
+
+        for (ExpressionNode child : children) {
+            height = Math.max(height, child.getHeight() + 1);
+        }
+
+        return height;
+    }
+
+    public int getWidth() {
+        int width = 0;
+
+        for (List<ExpressionNode> level : getLevels()) {
+            width = Math.max(width, level.size());
+        }
+
+        return width;
+    }
+
+    public List<List<ExpressionNode>> getLevels() {
+        List<List<ExpressionNode>> levels = new ArrayList<>();
+        collectLevels(levels);
+        return levels;
+    }
+
+    private int collectLevels(List<List<ExpressionNode>> levels) {
+        int height = 0;
+
+        for (ExpressionNode child : children) {
+            height = Math.max(height, child.collectLevels(levels) + 1);
+        }
+
+        if (!isLeaf()) {
+            while (levels.size() < height) {
+                levels.add(new ArrayList<>());
+            }
+
+            levels.get(height - 1).add(this);
+        }
+
+        return height;
+    }
+
     public void printTree(String indent, boolean isLast) {
         System.out.println(indent + (isLast ? "└── " : "├── ") + value);
 

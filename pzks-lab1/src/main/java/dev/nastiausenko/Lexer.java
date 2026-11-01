@@ -7,6 +7,7 @@ public class Lexer {
     private final List<LexicalError> errors = new ArrayList<>();
 
     public List<Token> tokenize(String input) {
+        errors.clear();
         List<Token> tokens = new ArrayList<>();
         int position = 0;
 
