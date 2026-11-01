@@ -108,11 +108,33 @@ public class ExpressionOptimizer {
     }
 
     private ExpressionNode simplifySubtraction(ExpressionNode node) {
-        if (isZero(node.getChildren().get(1))) {
-            return node.getChildren().get(0);
+        ExpressionNode left = node.getChildren().get(0);
+        ExpressionNode right = node.getChildren().get(1);
+
+        if (isSameExpression(left, right)) {
+            return createNumber(0, node.getPosition());
+        }
+
+        if (isZero(right)) {
+            return left;
         }
 
         return node;
+    }
+
+    private boolean isSameExpression(ExpressionNode left, ExpressionNode right) {
+        if (left.getType() != right.getType() || !left.getValue().equals(right.getValue())
+                || left.getChildren().size() != right.getChildren().size()) {
+            return false;
+        }
+
+        for (int i = 0; i < left.getChildren().size(); i++) {
+            if (!isSameExpression(left.getChildren().get(i), right.getChildren().get(i))) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private boolean reverseFirstDifference(ExpressionNode node) {
