@@ -1,4 +1,4 @@
-package dev.nastiausenko;
+package dev.nastiausenko.syntax;
 
 public class SyntaxError {
     private final String error;

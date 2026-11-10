@@ -1,4 +1,4 @@
-package dev.nastiausenko;
+package dev.nastiausenko.lexer;
 
 public class Token {
     private TokenType type;
