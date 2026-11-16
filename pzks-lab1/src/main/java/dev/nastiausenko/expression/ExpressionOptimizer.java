@@ -119,6 +119,10 @@ public class ExpressionOptimizer {
             return left;
         }
 
+        if (isZero(left)) {
+            return negate(right, node.getPosition());
+        }
+
         return node;
     }
 
