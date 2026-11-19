@@ -167,7 +167,7 @@ public class ExpressionOptimizer {
         ExpressionNode left = node.getChildren().get(0);
         ExpressionNode right = node.getChildren().get(1);
 
-        if (multiplication && (isZero(left) || isZero(right))) {
+        if (isZero(left) || (multiplication && isZero(right))) {
             return createNumber(0, node.getPosition());
         }
 
